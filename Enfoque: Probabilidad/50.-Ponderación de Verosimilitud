@@ -1,0 +1,52 @@
+import random
+
+# --- Ponderación de Verosimilitud ---
+# Algoritmo de muestreo aproximado para redes bayesianas.
+
+def simular(evidencia):
+    """Genera un mundo consistente con la evidencia y ajusta su peso."""
+    peso = 1.0
+    mundo = {}
+
+    # Variable 1: Cielo (azar)
+    mundo['Cielo'] = 'Nublado' if random.random() < 0.5 else 'Despejado'
+
+    # Variable 2: Lluvia (forzada por evidencia)
+    cielo = mundo['Cielo']
+    if 'Lluvia' in evidencia:
+        mundo['Lluvia'] = evidencia['Lluvia']
+        # Ajustar peso según probabilidad de esa evidencia
+        prob_no_lluvia = 0.2 if cielo == 'Nublado' else 0.9
+        peso *= prob_no_lluvia
+
+    # Variable 3: Regador (azar)
+    prob_regador = 0.1 if cielo == 'Nublado' else 0.5
+    mundo['Regador'] = 'Encendido' if random.random() < prob_regador else 'Apagado'
+
+    # Variable 4: Suelo (forzado por evidencia)
+    if 'Suelo' in evidencia:
+        mundo['Suelo'] = evidencia['Suelo']
+        # Ajustar peso según verosimilitud del suelo mojado
+        if mundo['Regador'] == 'Encendido' and mundo['Lluvia'] == 'No':
+            verosimilitud = 0.9
+        else:
+            verosimilitud = 0.01
+        peso *= verosimilitud
+
+    return mundo['Regador'], peso
+
+# --- Ejecución ---
+evidencia = {'Suelo': 'Si', 'Lluvia': 'No'}
+pesos = {'Encendido': 0.0, 'Apagado': 0.0}
+
+for _ in range(10000):
+    estado, w = simular(evidencia)
+    pesos[estado] += w
+
+# --- Resultado ---
+total = sum(pesos.values())
+prob_regador = (pesos['Encendido'] / total) * 100
+
+print("--- Análisis de Verosimilitud ---")
+print("Evidencia: Suelo mojado + Sin lluvia")
+print(f"Probabilidad de que el regador sea la causa: {prob_regador:.2f}%")
