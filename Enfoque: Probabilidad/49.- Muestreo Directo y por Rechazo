@@ -1,0 +1,53 @@
+import random
+import math
+
+# --- Muestreo por Rechazo ---
+# Genera muestras de una distribución compleja usando una caja uniforme.
+
+# Curva real de actividad (probabilidad de conexión por hora)
+def curva_real(hora):
+    """Probabilidad P(x) con picos en mañana y noche."""
+    if not (0 <= hora <= 24): return 0.0
+    pico_dia = 0.6 * math.exp(-0.1 * (hora - 10)**2)
+    pico_noche = 0.8 * math.exp(-0.1 * (hora - 20)**2)
+    base = 0.1
+    return min(pico_dia + pico_noche + base, 1.0)
+
+def generar_usuario():
+    """Algoritmo de Rejection Sampling."""
+    intentos = 0
+    M = 1.0  # altura máxima de la caja
+    while True:
+        intentos += 1
+        # Propuesta uniforme
+        hora = random.uniform(0, 24)
+        # Dardo de validación
+        u = random.uniform(0, M)
+        # Aceptar si cae bajo la curva
+        if u <= curva_real(hora):
+            return hora, intentos
+
+# --- Simulación ---
+total = 5000
+usuarios = []
+intentos_totales = 0
+
+print(f"[*] Generando {total} usuarios sintéticos...")
+
+for _ in range(total):
+    h, c = generar_usuario()
+    usuarios.append(h)
+    intentos_totales += c
+
+# --- Reporte ---
+print("\n--- Reporte de Muestreo ---")
+eficiencia = (total / intentos_totales) * 100
+print(f"Usuarios: {total}")
+print(f"Intentos: {intentos_totales}")
+print(f"Eficiencia: {eficiencia:.2f}%")
+
+# Histograma textual
+print("\nDistribución generada:")
+for h in [8, 10, 12, 16, 20, 23]:
+    count = len([x for x in usuarios if h <= x < h+1])
+    print(f"{h:02d}:00 | {'█' * (count // 20)} ({count} users)")
