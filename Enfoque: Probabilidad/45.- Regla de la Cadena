@@ -1,0 +1,41 @@
+# --- Regla de la Cadena ---
+# Calcula la probabilidad conjunta de una secuencia de eventos dependientes.
+
+def simular_regla_cadena(inventario_inicial, secuencia):
+    """Aplica la regla de la cadena sobre una secuencia de eventos sin reemplazo."""
+    estado = inventario_inicial.copy()
+    prob_total = 1.0
+
+    print("--- Inicio de la cadena ---")
+    for i, evento in enumerate(secuencia, 1):
+        total = sum(estado.values())
+
+        # Si el evento no está disponible, la secuencia falla
+        if total == 0 or estado.get(evento, 0) <= 0:
+            print(f"[!] Fallo en paso {i}: {evento} no disponible.")
+            return 0.0
+
+        # Probabilidad condicional del evento dado el estado actual
+        prob = estado[evento] / total
+        prob_total *= prob
+
+        print(f"Paso {i}: {evento} | P = {estado[evento]}/{total} = {prob:.4f}")
+
+        # Actualizar inventario (sin reemplazo)
+        estado[evento] -= 1
+
+    return prob_total
+
+# --- Escenario ---
+# Servidor con 10 archivos: 5 Texto, 3 Imagen, 2 Video
+servidor = {'Texto': 5, 'Imagen': 3, 'Video': 2}
+
+# Secuencia objetivo
+objetivo = ['Imagen', 'Texto', 'Imagen']
+
+# Ejecución
+prob_total = simular_regla_cadena(servidor, objetivo)
+
+print("\n--- Resultado ---")
+print(f"P({', '.join(objetivo)}) = {prob_total:.5f}")
+print(f"Equivale a {prob_total*100:.2f}% sin reemplazo.")
