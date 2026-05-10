@@ -1,0 +1,51 @@
+# --- Inferencia por Enumeración ---
+# Calcula P(Consulta | Evidencia) explorando variables ocultas.
+
+def obtener_p(nodo, valor, evidencia, red):
+    """Devuelve P(nodo=valor | padres)."""
+    config_padres = tuple(evidencia[p] for p in red[nodo]['padres'])
+    prob_true = red[nodo]['cpt'][config_padres]
+    return prob_true if valor else (1.0 - prob_true)
+
+def enumerar_recursivo(variables, evidencia, red):
+    """Explora casos posibles y suma sobre variables ocultas."""
+    if not variables:
+        return 1.0
+    Y, resto = variables[0], variables[1:]
+    if Y in evidencia:
+        return obtener_p(Y, evidencia[Y], evidencia, red) * enumerar_recursivo(resto, evidencia, red)
+    else:
+        # Marginalización: sumar casos True y False
+        return sum(
+            obtener_p(Y, val, {**evidencia, Y: val}, red) * enumerar_recursivo(resto, {**evidencia, Y: val}, red)
+            for val in [True, False]
+        )
+
+def motor_inferencia(consulta, evidencia, red):
+    """Calcula distribución normalizada P(consulta | evidencia)."""
+    resultados = {}
+    vars_ordenadas = list(red.keys())
+    for val in [True, False]:
+        evidencia_copy = {**evidencia, consulta: val}
+        resultados[val] = enumerar_recursivo(vars_ordenadas, evidencia_copy, red)
+    total = sum(resultados.values())
+    return {v: p / total for v, p in resultados.items()}
+
+# --- Red de Alarma (Pearl) ---
+red_seguridad = {
+    'Robo':      {'padres': [], 'cpt': {(): 0.001}},
+    'Terremoto': {'padres': [], 'cpt': {(): 0.002}},
+    'Alarma':    {'padres': ['Robo', 'Terremoto'], 'cpt': {
+        (True, True): 0.95, (True, False): 0.94, (False, True): 0.29, (False, False): 0.001}},
+    'JuanLlama': {'padres': ['Alarma'], 'cpt': {(True,): 0.90, (False,): 0.05}},
+    'MariaLlama':{'padres': ['Alarma'], 'cpt': {(True,): 0.70, (False,): 0.01}}
+}
+
+# --- Ejecución ---
+evidencia = {'JuanLlama': True, 'MariaLlama': True}
+prob_robo = motor_inferencia('Robo', evidencia, red_seguridad)
+
+print("--- Diagnóstico ---")
+print("Evidencia: Juan y María llaman.")
+print(f"P(Robo=True): {prob_robo[True]*100:.2f}%")
+print(f"P(Robo=False): {prob_robo[False]*100:.2f}%")
