@@ -1,0 +1,49 @@
+# --- Manto de Markov ---
+# Conjunto mínimo de nodos que aíslan un nodo del resto de la red.
+
+def extraer_manto(red, nodo):
+    """Obtiene padres, hijos y co-padres de un nodo."""
+    if nodo not in red:
+        return "Nodo no encontrado."
+
+    padres = set(red[nodo]['padres'])
+    hijos, copadres = set(), set()
+
+    # Buscar hijos y sus co-padres
+    for posible_hijo, config in red.items():
+        if nodo in config['padres']:
+            hijos.add(posible_hijo)
+            for p in config['padres']:
+                if p != nodo:
+                    copadres.add(p)
+
+    # Unión de padres, hijos y co-padres
+    manto = padres | hijos | copadres
+    return {
+        "Padres": list(padres),
+        "Hijos": list(hijos),
+        "Co-padres": list(copadres),
+        "Manto_Total": list(manto)
+    }
+
+# --- Escenario ---
+red_it = {
+    'Corte_Energia':   {'padres': []},
+    'Error_Hardware':  {'padres': []},
+    'Falla_Servidor':  {'padres': ['Corte_Energia', 'Error_Hardware']},
+    'Alerta_Email':    {'padres': ['Falla_Servidor']},
+    'Web_Caida':       {'padres': ['Falla_Servidor', 'Mantenimiento_DNS']},
+    'Mantenimiento_DNS': {'padres': []},
+    'Queja_Cliente':   {'padres': ['Web_Caida']}
+}
+
+objetivo = 'Falla_Servidor'
+manto = extraer_manto(red_it, objetivo)
+
+print(f"--- Manto de Markov para: {objetivo} ---")
+print("Padres:", manto['Padres'])
+print("Hijos:", manto['Hijos'])
+print("Co-padres:", manto['Co-padres'])
+print("\nEscudo total:", manto['Manto_Total'])
+print(f"\nNota: Conociendo estos {len(manto['Manto_Total'])} nodos,")
+print(f"'{objetivo}' queda independiente del resto de la red.")
