@@ -1,0 +1,79 @@
+import itertools
+
+# --- Eliminación de Variables ---
+# Optimiza inferencia en redes bayesianas usando factores.
+
+class Factor:
+    def __init__(self, variables, tabla):
+        self.variables = variables  # variables incluidas
+        self.tabla = tabla          # diccionario {tupla valores: probabilidad}
+
+def multiplicar(f1, f2):
+    """Multiplica factores compatibles."""
+    nuevas_vars = list(set(f1.variables + f2.variables))
+    tabla = {}
+    for comb in itertools.product([True, False], repeat=len(nuevas_vars)):
+        est = dict(zip(nuevas_vars, comb))
+        t1 = tuple(est[v] for v in f1.variables)
+        t2 = tuple(est[v] for v in f2.variables)
+        if t1 in f1.tabla and t2 in f2.tabla:
+            tabla[comb] = f1.tabla[t1] * f2.tabla[t2]
+    return Factor(nuevas_vars, tabla)
+
+def marginalizar(factor, var):
+    """Elimina variable sumando probabilidades."""
+    nuevas_vars = [v for v in factor.variables if v != var]
+    tabla = {}
+    for comb, prob in factor.tabla.items():
+        est = dict(zip(factor.variables, comb))
+        reducido = tuple(est[v] for v in nuevas_vars)
+        tabla[reducido] = tabla.get(reducido, 0) + prob
+    return Factor(nuevas_vars, tabla)
+
+def motor_eliminacion_variables(consulta, evidencia, red):
+    """Aplica eliminación de variables para calcular P(consulta|evidencia)."""
+    # Crear factores iniciales con evidencia
+    factores = []
+    for nodo, config in red.items():
+        vars_f = config['padres'] + [nodo]
+        tabla_f = {}
+        for comb in itertools.product([True, False], repeat=len(vars_f)):
+            est = dict(zip(vars_f, comb))
+            if all(est[v] == val for v, val in evidencia.items() if v in est):
+                p_true = config['cpt'][tuple(est[p] for p in config['padres'])]
+                tabla_f[comb] = p_true if est[nodo] else (1.0 - p_true)
+        factores.append(Factor(vars_f, tabla_f))
+
+    # Eliminar variables ocultas
+    ocultas = [n for n in red if n != consulta and n not in evidencia]
+    for v in ocultas:
+        relacionados = [f for f in factores if v in f.variables]
+        factores = [f for f in factores if v not in f.variables]
+        if relacionados:
+            f_unido = relacionados[0]
+            for f in relacionados[1:]:
+                f_unido = multiplicar(f_unido, f)
+            factores.append(marginalizar(f_unido, v))
+
+    # Combinar factores finales
+    res = factores[0]
+    for f in factores[1:]:
+        res = multiplicar(res, f)
+
+    # Normalizar
+    total = sum(res.tabla.values())
+    return {c[0]: p / total for c, p in res.tabla.items()}
+
+# --- Red de Alarma ---
+red_alarma = {
+    'Robo': {'padres': [], 'cpt': {(): 0.001}},
+    'Terremoto': {'padres': [], 'cpt': {(): 0.002}},
+    'Alarma': {'padres': ['Robo', 'Terremoto'], 'cpt': {
+        (True, True): 0.95, (True, False): 0.94, (False, True): 0.29, (False, False): 0.001}},
+    'JuanLlama': {'padres': ['Alarma'], 'cpt': {(True,): 0.90, (False,): 0.05}},
+    'MariaLlama': {'padres': ['Alarma'], 'cpt': {(True,): 0.70, (False,): 0.01}}
+}
+
+# --- Ejecución ---
+final = motor_eliminacion_variables('Robo', {'JuanLlama': True, 'MariaLlama': True}, red_alarma)
+print(f"P(Robo=True | evidencia) = {final[True]*100:.2f}%")
